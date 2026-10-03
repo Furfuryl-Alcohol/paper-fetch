@@ -1,0 +1,23 @@
+# 统一行尾符：仓库内存 LF，检出时按平台自动转换。
+# 不加这个的话，Windows 用户提交的 CRLF 会让 Linux/macOS 用户看到满屏无意义 diff。
+* text=auto eol=lf
+
+# 明确指定类型
+*.py    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.txt   text eol=lf
+
+# 二进制（避免 git 尝试做行尾转换）
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+
+# Windows 批处理必须是 CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# 语言统计时把文档排除，避免 README 主导仓库的"语言"判定
+docs/** linguist-documentation
+*.md    linguist-documentation
