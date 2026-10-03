@@ -147,8 +147,13 @@ python scripts/rename_by_meta.py --xlsx papers.xlsx --dest ./papers
 
 ## 已知的上游问题
 
-本项目在开发过程中发现 [`scansci-pdf`](https://pypi.org/project/scansci-pdf/) 的若干 bug，
-已整理成可供上游修复的报告，见 [`docs/UPSTREAM.md`](docs/UPSTREAM.md)。
+本项目在开发过程中发现 [`scansci-pdf`](https://pypi.org/project/scansci-pdf/)
+（[上游仓库](https://github.com/Rimagination/scansci-pdf)）的若干 bug，
+已整理成可直接提交的报告，见 [`docs/UPSTREAM.md`](docs/UPSTREAM.md)。
+
+该文档**逐项核验过 1.17.0 与 1.18.0**，区分「已修复」与「仍存在」，
+避免提交已经闭环的问题。
+
 **本项目不依赖它**，两者是独立的。
 
 ---
