@@ -155,9 +155,12 @@ python scripts/rename_by_meta.py --xlsx papers.xlsx --dest ./papers
 
 ## 许可
 
-代码 MIT，见 [LICENSE](LICENSE)。
+本项目源代码与文档以 **MIT** 许可发布，见 [LICENSE](LICENSE)。
 
-文档中引用的出版商政策条款，版权归各出版商所有，此处仅作事实性说明与引用。
+**范围说明**：上述许可仅覆盖本项目原创的代码与文档。
+
+文档中引用的出版商政策条款、API 文档摘录等，版权归各出版商所有，
+此处仅作事实性说明与引用，不因本项目许可而改变其权利归属。
 
 ## 免责声明
 
