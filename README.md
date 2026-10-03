@@ -136,6 +136,13 @@ python scripts/rename_by_meta.py --xlsx papers.xlsx --dest ./papers
 
 各通道的可运行代码配方见 [`references/recipes.md`](references/recipes.md)。
 
+**遇到表里没有的出版商**（上面矩阵覆盖不到的），别猜也别硬试 —— 按
+[`references/discovery.md`](references/discovery.md) 的探路方法论走：
+先用 Crossref 拿元数据（期刊名 / 出版商 / OA 状态 / 是否声明了 TDM 链接），
+再按「官方 API → 公开机器入口 → 开放 CDN → 人工清单」的顺序探。
+那份文件还包含**失败诊断树**（分清 Cloudflare / Akamai / 付费墙 / 权益）、
+「怎么找出版商的独立 CDN」，以及「slug 规则的通用做法」。
+
 ---
 
 ## 作为 Agent Skill 使用

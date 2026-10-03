@@ -88,6 +88,12 @@ python scripts/gap_report.py --xlsx <表.xlsx> --dest <目标目录>
 **并行建议**：无凭证的通道（Springer/Nature/MDPI）可以立即跑；
 需要凭证的（Wiley/Elsevier）先跑 `doctor.py` 确认凭证在不在。
 
+> **表里没有的出版商怎么办？** 别猜，也别直接开浏览器硬试 ——
+> 按 `references/discovery.md` 的方法论走：
+> 先用 Crossref 拿元数据（期刊名 / 出版商 / OA 状态 / 有无 TDM 链接），
+> 再按"官方 API → 公开机器入口 → 开放 CDN → 人工"的顺序探。
+> 那份文件还给了失败诊断树（分清 Cloudflare / Akamai / 付费墙 / 权益）。
+
 ### 第 3 步：下载
 
 各脚本用法见 `references/recipes.md`。共同约定：
@@ -205,7 +211,8 @@ python scripts/doctor.py --guide      # 打印逐项申请指引
 
 | 文件 | 内容 |
 |---|---|
-| `references/access-matrix.md` | 各出版商通道矩阵、限制、合规边界 |
+| `references/access-matrix.md` | 各出版商通道矩阵、限制、合规边界（**已知答案**） |
+| `references/discovery.md` | **探路方法论**：遇到没见过的出版商，按什么顺序查（**得出答案的方法**） |
 | `references/credentials.md` | 每项凭证的完整申请流程 |
 | `references/recipes.md` | 各通道的可运行代码配方 |
 | `references/pitfalls.md` | 陷阱全表（含本 skill 形成过程中的实测记录） |
