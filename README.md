@@ -173,6 +173,12 @@ python scripts/rename_by_meta.py --xlsx papers.xlsx --dest ./papers
 
 ---
 
+## 贡献与 AI 使用
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) —— 贡献方式，含两条硬红线（不提交凭证、不提交论文）
+- [`AI_POLICY.md`](AI_POLICY.md) —— **AI 使用政策**：本项目采用披露制，要求透明
+- [`SECURITY.md`](SECURITY.md) —— 漏洞与凭证泄漏请**私下**报告
+
 ## 许可
 
 本项目源代码与文档以 **MIT** 许可发布，见 [LICENSE](LICENSE)。
