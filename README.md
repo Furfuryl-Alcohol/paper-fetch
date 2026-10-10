@@ -26,8 +26,13 @@
 - ❌ 不抓取**明文禁止**自动化下载的站点（Elsevier / IOP / RSC / ACS，见下表）
 - ❌ 不内置任何凭证 —— 你需要自己申请，见 [`references/credentials.md`](references/credentials.md)
 
-对上面这几家，本工具只生成**可点击的人工下载清单**，不提供自动化。
+对上面这几家，本工具**默认只生成可点击的人工下载清单**，不提供自动化。
 手动下载是正常个人使用，不在禁止之列。
+
+> **可选扩展（默认关闭）**：`scripts/manual_download_loop.py` 提供一种"人点、脚本翻页 + 归档"
+> 的辅助模式 —— 它**不下载任何东西**（每篇都由人亲手点）、不绕付费墙（识别到无权限反而跳过）、
+> 不抓页面内容；但它确实**会驱动浏览器导航到这些站点**，属灰色地带，故**默认关闭、需显式启用**。
+> 详见 [`references/manual-loop.md`](references/manual-loop.md)。
 
 ## 使用前请确认
 
@@ -82,6 +87,9 @@ python scripts/make_checklist.py --xlsx papers.xlsx --dest ./papers
 
 # 6. 全部按「期刊名 - 标题」重命名归位（手动下载的也能认出来）
 python scripts/rename_by_meta.py --xlsx papers.xlsx --dest ./papers
+
+# 可选（默认关闭，需先启用）：人工下载循环 —— 你在浏览器里点下载，脚本翻页+归档
+# python scripts/manual_download_loop.py --list 待下载清单.txt
 ```
 
 `--xlsx` 也可以是纯文本 DOI 列表。所有脚本 `--help` 有详细说明。

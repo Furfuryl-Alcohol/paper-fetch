@@ -8,7 +8,7 @@ description: >
   「下载论文」「批量下载文献」「获取全文」「文献综述资料」「抓 PDF」「DOI 下载」时，使用本 skill。
   即使用户只说「帮我把这些文献下下来」而没提任何工具名，也应使用本 skill。
   SKIP：用户只是讨论论文内容、翻译论文、或做文献综述的写作（不涉及获取原文文件）。
-version: 1.0.0
+version: 1.1.0
 ---
 
 # paper-fetch — 学术论文自动化获取
@@ -48,6 +48,12 @@ Cloudflare / Akamai 的检测是持续演进的。任何"绕过"技巧都会在�
 
 **手动下载是正常个人使用，不在禁止之列。** 所以对这些出版商，正确做法是
 生成「点击清单」交给用户，而不是驱动浏览器批量抓。
+
+> **可选扩展（默认关闭）**：另有 `scripts/manual_download_loop.py` —— 一个
+> "人点、脚本翻页+归档"的辅助件。它**不下载任何东西**（每篇都由人亲手点）、
+> 不绕付费墙（识别到无权限反而跳过）、不抓页面内容；但它确实**会驱动浏览器导航到
+> 这些出版商的站点**，仍属灰色地带。因此**默认关闭**，需显式启用（见
+> `references/manual-loop.md`）。**不要主动推荐、不要默认使用**它。
 
 ---
 
@@ -122,6 +128,10 @@ python scripts/make_checklist.py --xlsx <表.xlsx> --dest <目标目录>
 
 产出 `待下载清单.html`（点标题直接跳文章页）+ `.txt`。用户手动下完丢回同一目录，
 再跑一次第 4 步即可归位。
+
+> 若用户**明确要求**、且已启用可选扩展，可用 `scripts/manual_download_loop.py` 把
+> "人工下 20~50 篇"变成"人在浏览器里点、脚本自动翻页 + 归档 + 跳过无权限"。
+> 默认关闭，详见 `references/manual-loop.md`。
 
 ---
 
@@ -216,6 +226,7 @@ python scripts/doctor.py --guide      # 打印逐项申请指引
 | `references/credentials.md` | 每项凭证的完整申请流程 |
 | `references/recipes.md` | 各通道的可运行代码配方 |
 | `references/pitfalls.md` | 陷阱全表（含本 skill 形成过程中的实测记录） |
+| `references/manual-loop.md` | **可选扩展**：人点下载循环的边界、启用方法、实测坑 |
 
 ## 脚本
 
@@ -229,6 +240,8 @@ python scripts/doctor.py --guide      # 打印逐项申请指引
 | `scripts/fetch_elsevier_api.py` | Elsevier Article Retrieval API |
 | `scripts/rename_by_meta.py` | 按 DOI 回查表格批量重命名 |
 | `scripts/make_checklist.py` | 生成人工下载清单（HTML + TXT） |
+| `scripts/manual_download_loop.py` | **可选扩展（默认关闭）**：人点下载、脚本翻页+归档+跳过无权限 |
 | `scripts/_common.py` | 共用：凭证读取、路径、DOI 规范化 |
 
 所有脚本均为纯 Python 3.10+，无第三方依赖（除 `requests`），Windows / macOS / Linux 通用。
+例外：`manual_download_loop.py`（可选扩展）另需 `playwright`，且只在 Windows + Edge 上实测过。
