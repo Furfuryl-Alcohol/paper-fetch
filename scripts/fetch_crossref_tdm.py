@@ -22,11 +22,7 @@ from _common import (  # noqa: E402
     doi_tag, ensure_dir, get, norm_doi, publisher_of, read_doi_list, valid_pdf,
 )
 
-try:
-    import requests
-except ImportError:
-    print("需要 requests：pip install requests")
-    sys.exit(1)
+import _http as requests
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"}

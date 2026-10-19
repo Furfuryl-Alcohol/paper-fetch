@@ -11,8 +11,12 @@
 
 **零凭证、纯 HTTP、无反爬** —— 优先级最高，先跑这个。
 
+> 下列示例用 `scripts/_http.py`——本 skill 自带的标准库实现（urllib），接口兼容
+> requests 的常用子集。在 skill 目录内直接可用；若把代码剪到别处，改回
+> `import requests` 或 `import urllib.request` 即可。
+
 ```python
-import requests
+import _http as requests
 
 S = requests.Session()
 S.headers.update({
@@ -96,31 +100,36 @@ def mdpi_variants(doi: str) -> list[str]:
 
 ## 3. Wiley TDM API
 
-用**官方客户端**，不要自己拼 API。
-
-```bash
-pip install wiley-tdm
-export WILEY_TDM_TOKEN="<uuid>"
-```
+官方 API 就是一次带 token 头的 GET，不需要任何第三方客户端：
 
 ```python
-import os
-from wiley_tdm import TDMClient
+import urllib.parse
+import _http as requests          # 或 import requests
 
-tdm = TDMClient(download_dir="papers/")
-tdm.api_rate_limit = 10.0        # 官方建议：长期跑 10 秒/篇
-results = tdm.download_pdfs(["10.1002/xxx", "10.1002/yyy"])   # 每篇之间自动 sleep
+token = "<uuid>"
+doi = "10.1002/anie.202512175"
+url = ("https://api.wiley.com/onlinelibrary/tdm/v1/articles/"
+       + urllib.parse.quote(doi, safe=""))
 
-for r in results:
-    print(r.status, r.doi, r.path)
+r = requests.get(url, headers={
+    "Wiley-TDM-Client-Token": token,
+    "User-Agent": "paper-fetch/1.0",
+}, timeout=(5, 30), allow_redirects=True)
+
+# 200 + %PDF-  → 成功
+# 403          → 该刊不在订阅内，或 IP 鉴权失败
+# 404          → 无此 DOI
+# 429          → 限流，退避重试
 ```
 
 要点：
 
-- `download_pdfs` 会**逐篇 sleep**；`download_pdf`（单篇）不 sleep
-- 默认 `skip_existing_files=True`，文件已存在就跳过（省配额）
-- `only_record_errors=True` 可只留失败记录
-- `save_results("results.csv")` 导出结果
+- **不要**对 DOI 做二次编码；`quote(doi, safe="")` 一次即可
+- 落盘前必须校验 `%PDF-` magic + 最小体积（防 200 + HTML 错误页）
+- **单篇 403** 是正常的（该刊未订阅）；**全部 403** 才说明 IP 鉴权有问题
+- 官方建议长期 10 秒/篇（60 请求/10 分钟），不低于 5 秒
+- 官方客户端 `wiley-tdm`（MIT）也可用；本 skill 已改为纯标准库实现，
+  不再依赖它
 - **不做 `?download=true` 之类的 URL 花样** —— 这是 API，不是网页
 
 ---
@@ -181,7 +190,7 @@ Cloudflare 照样拦，**与你有没有权限无关**。要用**导航 + expect
 ## 5. Elsevier Article Retrieval API
 
 ```python
-import requests
+import _http as requests   # 或 import requests
 
 r = requests.get(
     f"https://api.elsevier.com/content/article/doi/{doi}",

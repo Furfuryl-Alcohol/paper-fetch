@@ -12,7 +12,7 @@
 已知 DOI，先查 Crossref 拿基础事实：
 
 ```python
-import requests
+import _http as requests      # 本 skill 自带的标准库封装；或 import requests
 S = requests.Session()
 S.headers.update({"User-Agent": "probe/1.0 (mailto:you@institution.edu)"})
 

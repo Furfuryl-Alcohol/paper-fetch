@@ -27,11 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _common import doi_tag, ensure_dir, get, norm_doi, read_doi_list, redact, valid_pdf  # noqa: E402
 
-try:
-    import requests
-except ImportError:
-    print("需要 requests：pip install requests")
-    sys.exit(1)
+import _http as requests
 
 API = "https://api.elsevier.com/content"
 # gold OA 对照：OA 内容本该任何有效 key 都能取

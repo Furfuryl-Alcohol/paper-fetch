@@ -30,12 +30,14 @@
 
 ### Wiley `10.1002` ✅ 推荐
 
-**Wiley 有官方 TDM API 和官方 Python 客户端**（`wiley-tdm`，MIT 许可）。
+**Wiley 有官方 TDM API**：一次带 `Wiley-TDM-Client-Token` 头的 GET 即可，
+不需要第三方客户端。本 skill 的实现是纯标准库。
 
-- 官方客户端：`pip install wiley-tdm`
+- 端点：`https://api.wiley.com/onlinelibrary/tdm/v1/articles/{urlencoded DOI}`
 - 限速规定：**3 篇/秒**、**60 请求/10 分钟**（长期跑用 **10 秒/篇**）
 - 认证：TDM token + **IP 鉴权**
-- 内置：限速、跳过已存在文件、断点续传、结果 CSV
+- 脚本内置：限速、跳过已存在文件、结果 CSV
+- 官方客户端 `wiley-tdm`（MIT）仍可用，但**不是必需**
 
 **注意**：官方文档明确说明**只支持 IP 鉴权**。SSO-only 的机构账号、或在登记
 IP 段外运行（云主机等）都不支持。

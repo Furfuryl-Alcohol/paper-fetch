@@ -56,11 +56,7 @@ def check_credentials() -> dict[str, bool]:
 
 def check_network() -> None:
     section("2. 网络出口")
-    try:
-        import requests
-    except ImportError:
-        print("  ! 未安装 requests，跳过。pip install requests")
-        return
+    import _http as requests
 
     for fam, name in ((socket.AF_INET, "IPv4"), (socket.AF_INET6, "IPv6")):
         try:
@@ -91,11 +87,7 @@ def check_network() -> None:
 
 def probe_channels() -> None:
     section("3. 通道连通性实测（--probe）")
-    try:
-        import requests
-    except ImportError:
-        print("  未安装 requests，跳过")
-        return
+    import _http as requests
 
     UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"}
@@ -123,10 +115,19 @@ def probe_channels() -> None:
     tok = get("wiley_tdm_token")
     if tok:
         try:
-            import wiley_tdm  # noqa: F401
-            print(f"  [{CREDS_TRUE}] wiley-tdm 包          已安装")
-        except ImportError:
-            print(f"  [{WARN}] wiley-tdm 包          未安装：pip install wiley-tdm")
+            # HEAD 不下载正文，只验证 token + IP 鉴权 + 端点在不在
+            r = requests.head(
+                "https://api.wiley.com/onlinelibrary/tdm/v1/articles/"
+                "10.1002%2Fanie.202512175",
+                headers={"Wiley-TDM-Client-Token": tok,
+                         "User-Agent": "paper-fetch/doctor/1.0"},
+                timeout=(5, 15))
+            ok = (r.status_code == 200
+                  and r.headers.get("Content-Type", "").startswith("application/pdf"))
+            print(f"  [{'OK' if ok else '!!'}] Wiley TDM API          HTTP {r.status_code}"
+                  + ("" if ok else "   ← token / IP 鉴权有问题，见 credentials.md"))
+        except Exception as e:
+            print(f"  [!!] Wiley TDM API          失败: {str(e)[:50]}")
     else:
         print(f"  [{CREDS_FALSE}] Wiley TDM              缺 token，见 credentials.md")
 

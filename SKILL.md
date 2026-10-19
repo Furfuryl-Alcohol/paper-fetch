@@ -8,7 +8,7 @@ description: >
   「下载论文」「批量下载文献」「获取全文」「文献综述资料」「抓 PDF」「DOI 下载」时，使用本 skill。
   即使用户只说「帮我把这些文献下下来」而没提任何工具名，也应使用本 skill。
   SKIP：用户只是讨论论文内容、翻译论文、或做文献综述的写作（不涉及获取原文文件）。
-version: 1.1.0
+version: 1.4.0
 ---
 
 # paper-fetch — 学术论文自动化获取
@@ -54,6 +54,37 @@ Cloudflare / Akamai 的检测是持续演进的。任何"绕过"技巧都会在�
 > 不绕付费墙（识别到无权限反而跳过）、不抓页面内容；但它确实**会驱动浏览器导航到
 > 这些出版商的站点**，仍属灰色地带。因此**默认关闭**，需显式启用（见
 > `references/manual-loop.md`）。**不要主动推荐、不要默认使用**它。
+
+---
+
+## 运行环境（跨宿主 / 跨平台，先看这段）
+
+本 skill 的正文与脚本与具体宿主无关。无论在 Claude Code、Cherry Studio 还是
+DeepSeek Harness 中运行，都遵守以下约定：
+
+1. **相对路径以 skill 的基准目录为准。** 宿主通常会在加载结果里给出
+   `Base directory for this skill: <路径>`；执行 `python scripts/xxx.py` 前先切到该目录，
+   或者直接写 `<基准目录>/scripts/xxx.py`。
+2. **不要依赖交互输入。** 所有脚本都必须能在无人值守下跑完；需要确认的参数走命令行开关。
+3. **Windows 用 PowerShell，不要假设有 bash。** 环境变量写法不同：
+
+   ```powershell
+   $env:WILEY_TDM_TOKEN = "..."
+   $env:CROSSREF_MAILTO = "you@institution.edu"
+   python -u scripts/doctor.py
+   ```
+
+   ```bash
+   export WILEY_TDM_TOKEN="..."
+   export CROSSREF_MAILTO="you@institution.edu"
+   python -u scripts/doctor.py
+   ```
+
+4. **Windows 下加 `-u`。** 否则 stdout 被块缓冲，长任务看起来像卡死。
+5. **依赖**：核心脚本**零第三方依赖**。HTTP 统一走自带的 `scripts/_http.py`
+   （标准库 urllib 实现，接口兼容 requests 常用子集），精简运行时也能跑。
+   唯一例外：`manual_download_loop.py`（可选扩展）需 `playwright`，
+   且仅 Windows + Edge 实测过。
 
 ---
 
@@ -151,6 +182,9 @@ python scripts/make_checklist.py --xlsx <表.xlsx> --dest <目标目录>
 2. ~/.paper-fetch/credentials.json ← 次选，权限设 600
 ```
 
+设置环境变量时注意 shell 差异：bash 用 `export NAME="..."`，PowerShell 用
+`$env:NAME = "..."`（详见上方「运行环境」）。
+
 支持的键：
 
 | 键 | 环境变量 | 用途 |
@@ -241,7 +275,9 @@ python scripts/doctor.py --guide      # 打印逐项申请指引
 | `scripts/rename_by_meta.py` | 按 DOI 回查表格批量重命名 |
 | `scripts/make_checklist.py` | 生成人工下载清单（HTML + TXT） |
 | `scripts/manual_download_loop.py` | **可选扩展（默认关闭）**：人点下载、脚本翻页+归档+跳过无权限 |
+| `scripts/_http.py` | HTTP 层：标准库 urllib 实现，接口兼容 requests 常用子集 |
 | `scripts/_common.py` | 共用：凭证读取、路径、DOI 规范化 |
 
-所有脚本均为纯 Python 3.10+，无第三方依赖（除 `requests`），Windows / macOS / Linux 通用。
-例外：`manual_download_loop.py`（可选扩展）另需 `playwright`，且只在 Windows + Edge 上实测过。
+所有脚本均为纯 Python 3.10+，**核心通道零第三方依赖**（HTTP 层统一用自带的
+`scripts/_http.py`，仅依赖标准库 `urllib`），Windows / macOS / Linux 通用。
+例外：`manual_download_loop.py`（可选扩展）需 `playwright`，且只在 Windows + Edge 上实测过。

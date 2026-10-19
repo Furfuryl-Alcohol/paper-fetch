@@ -64,7 +64,7 @@
 
 ```bash
 git clone <your-repo> && cd paper-fetch
-pip install requests                # 唯一必需依赖
+# 核心通道零第三方依赖（只用 Python 标准库 urllib）
 
 # 1. 体检：本机有哪些凭证、哪些通道可用、缺的怎么申请
 python scripts/doctor.py
