@@ -38,6 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _common import (  # noqa: E402
     doi_tag, ensure_dir, get, norm_doi, read_doi_list, redact, valid_pdf,
+    write_atomic,
 )
 import _http as requests  # noqa: E402
 
@@ -81,7 +82,7 @@ def download_one(doi: str, token: str, dest: Path) -> tuple[str, int, str]:
         if r.status_code == 200:
             # 不校验就会把 200 + HTML 错误页存成假 PDF
             if r.content[:5] == b"%PDF-" and len(r.content) > 20000:
-                out.write_bytes(r.content)
+                write_atomic(out, r.content)
                 return "OK", len(r.content), ""
             return ("ERROR", len(r.content),
                     "HTTP 200 但内容不是 PDF（可能是错误页，未落盘）")

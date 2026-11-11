@@ -18,7 +18,10 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _common import doi_tag, norm_doi, publisher_of, read_doi_list, safe_filename, valid_pdf  # noqa: E402
+from _common import (  # noqa: E402
+    DOI_COL_ALIASES, doi_tag, norm_doi, publisher_of, read_doi_list,
+    safe_filename, valid_pdf,
+)
 
 
 def load_titles(xlsx: Path) -> dict[str, tuple[str, str]]:
@@ -27,9 +30,11 @@ def load_titles(xlsx: Path) -> dict[str, tuple[str, str]]:
     df = pd.read_excel(xlsx, header=0)
     cols = {str(c).strip().lower(): c for c in df.columns}
 
-    doi_col = cols.get("doi")
+    doi_col = next((cols[a] for a in DOI_COL_ALIASES if a in cols), None)
     if doi_col is None:
-        raise ValueError(f"表格里找不到 DOI 列。实际列：{list(df.columns)[:12]}")
+        raise ValueError(
+            f"表格里找不到 DOI 列（接受: {', '.join(DOI_COL_ALIASES)}）。"
+            f"实际列：{list(df.columns)[:12]}")
 
     title_col = next((cols[k] for k in ("article title", "title", "标题") if k in cols), None)
     src_col = next((cols[k] for k in ("source title", "journal", "期刊", "来源出版物")

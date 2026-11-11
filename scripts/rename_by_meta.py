@@ -8,6 +8,7 @@
   3. 标题模糊匹配
 
 **认不出的文件保持原样并单独列出，绝不删除、绝不覆盖非同名文件。**
+发现内容完全相同的重复文件时，移入 `_duplicates/`，不直接删除。
 
 用法:
     python rename_by_meta.py --xlsx 表.xlsx --dest ./papers
@@ -17,20 +18,23 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _common import norm_doi, safe_filename  # noqa: E402
+from _common import DOI_COL_ALIASES, norm_doi, safe_filename  # noqa: E402
 
 
 def load_meta(xlsx: Path) -> dict[str, tuple[str, str]]:
     import pandas as pd
     df = pd.read_excel(xlsx, header=0)
     cols = {str(c).strip().lower(): c for c in df.columns}
-    doi_col = cols.get("doi")
+    doi_col = next((cols[a] for a in DOI_COL_ALIASES if a in cols), None)
     if doi_col is None:
-        raise ValueError(f"表格里找不到 DOI 列。实际列：{list(df.columns)[:12]}")
+        raise ValueError(
+            f"表格里找不到 DOI 列（接受: {', '.join(DOI_COL_ALIASES)}）。"
+            f"实际列：{list(df.columns)[:12]}")
     title_col = next((cols[k] for k in ("article title", "title", "标题") if k in cols), None)
     src_col = next((cols[k] for k in ("source title", "journal", "期刊", "来源出版物")
                     if k in cols), None)
@@ -149,8 +153,10 @@ def main() -> int:
                 same = False
             if same:
                 if not args.dry_run:
-                    p.unlink()
-                print(f"  去重  {p.name}")
+                    dup_dir = p.parent / "_duplicates"
+                    dup_dir.mkdir(exist_ok=True)
+                    shutil.move(str(p), str(dup_dir / p.name))
+                print(f"  去重  {p.name}  → _duplicates/")
                 renamed += 1
                 continue
             print(f"  冲突  {newname} 已存在且不同，跳过 {p.name}")

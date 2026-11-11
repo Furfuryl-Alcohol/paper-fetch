@@ -25,7 +25,10 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _common import doi_tag, ensure_dir, get, norm_doi, read_doi_list, redact, valid_pdf  # noqa: E402
+from _common import (  # noqa: E402
+    doi_tag, ensure_dir, get, norm_doi, read_doi_list, redact, valid_pdf,
+    write_atomic,
+)
 
 import _http as requests
 
@@ -53,23 +56,28 @@ def diagnose(key: str) -> bool:
     if not abstract_ok:
         print(f"       {r.text[:120]}")
 
-    r2 = call(key, f"article/doi/{OA_CONTROL}?view=FULL", accept="text/xml")
-    full_ok = r2.status_code == 200
-    print(f"  [{'OK' if full_ok else '!!'}] 全文接口（gold OA 对照） HTTP {r2.status_code}")
+    # gold OA 对照：用 PDF 端点并校验 %PDF- —— 只看 200 会把错误页当成成功
+    r2 = call(key, f"article/doi/{OA_CONTROL}", accept="application/pdf")
+    oa_pdf = (r2.status_code == 200 and r2.content[:5] == b"%PDF-"
+              and len(r2.content) > 20000)
+    print(f"  [{'OK' if oa_pdf else '!!'}] 全文接口（gold OA 对照） "
+          f"HTTP {r2.status_code}  {len(r2.content):,} B")
 
-    if not full_ok:
+    if not oa_pdf:
         print(f"       {r2.text[:160]}")
 
     print()
-    if full_ok:
-        print("  >>> 全文权益可用，可以下载。")
+    if oa_pdf:
+        print("  >>> gold OA 全文可用（已取到真 PDF）。")
+        print("      注意：这只证明 **OA 内容**可下；订阅文章是否可下，")
+        print("      需要用一篇非 OA 且机构已订阅的文章单独验证。")
     elif abstract_ok:
-        print("  >>> key 有效，但**缺全文权益**（受限 API，默认不开通）。")
+        print("  >>> key 有效，但连 gold OA 全文都取不到 —— **缺全文权益**。")
         print("      这不是配置错误。请走 API Support 表单申请，模板见 credentials.md。")
         print("      在拿到权益前，这批文献请让用户手动下载。")
     else:
         print("  >>> key 本身无效或未启用。检查 key 是否正确。")
-    return full_ok
+    return oa_pdf
 
 
 def main() -> int:
@@ -114,7 +122,7 @@ def main() -> int:
             continue
         r = call(key, f"article/doi/{doi}", accept="application/pdf")
         if r.status_code == 200 and r.content[:5] == b"%PDF-":
-            out.write_bytes(r.content)
+            write_atomic(out, r.content)
             print(f"{i:3d}. OK     {doi}   {len(r.content):,} B")
             ok += 1
         else:

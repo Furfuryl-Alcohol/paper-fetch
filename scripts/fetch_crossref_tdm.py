@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _common import (  # noqa: E402
     doi_tag, ensure_dir, get, norm_doi, publisher_of, read_doi_list, valid_pdf,
+    write_atomic,
 )
 
 import _http as requests
@@ -51,7 +52,7 @@ def try_download(urls: list[str], dest: Path) -> bool:
         try:
             r = requests.get(u, headers=UA, timeout=90, allow_redirects=True)
             if r.status_code == 200 and r.content[:5] == b"%PDF-" and len(r.content) > 20000:
-                dest.write_bytes(r.content)
+                write_atomic(dest, r.content)
                 return valid_pdf(dest)
         except Exception:
             continue

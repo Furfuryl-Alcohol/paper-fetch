@@ -34,7 +34,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _common import doi_tag, ensure_dir, get, norm_doi, read_doi_list, valid_pdf  # noqa: E402
+from _common import (  # noqa: E402
+    doi_tag, ensure_dir, get, norm_doi, read_doi_list, valid_pdf, write_atomic,
+)
 
 import _http as requests
 
@@ -216,7 +218,7 @@ def main() -> int:
             try:
                 r = requests.get(u, headers=UA, timeout=60)
                 if r.status_code == 200 and r.content[:5] == b"%PDF-" and len(r.content) > 20000:
-                    out.write_bytes(r.content)
+                    write_atomic(out, r.content)
                     print(f"{i:3d}. OK     {doi}   {len(r.content):,} B")
                     ok += 1
                     got = True

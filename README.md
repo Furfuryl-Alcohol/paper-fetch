@@ -66,6 +66,12 @@
 git clone <your-repo> && cd paper-fetch
 # 核心通道零第三方依赖（只用 Python 标准库 urllib）
 
+# 0. 一条命令跑完（推荐）：分发 → 下载 → 重命名 → 人工清单
+python scripts/fetch_all.py --xlsx papers.xlsx --dest ./papers
+python scripts/fetch_all.py --xlsx papers.xlsx --dest ./papers --dry-run  # 先看计划
+
+# 以下为分步用法（排障，或只想跑某一条通道时用）
+
 # 1. 体检：本机有哪些凭证、哪些通道可用、缺的怎么申请
 python scripts/doctor.py
 python scripts/doctor.py --guide    # 逐项申请指引（含入口 URL、耗时）

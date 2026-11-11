@@ -8,7 +8,7 @@ description: >
   「下载论文」「批量下载文献」「获取全文」「文献综述资料」「抓 PDF」「DOI 下载」时，使用本 skill。
   即使用户只说「帮我把这些文献下下来」而没提任何工具名，也应使用本 skill。
   SKIP：用户只是讨论论文内容、翻译论文、或做文献综述的写作（不涉及获取原文文件）。
-version: 1.4.0
+version: 1.5.0
 ---
 
 # paper-fetch — 学术论文自动化获取
@@ -89,6 +89,10 @@ DeepSeek Harness 中运行，都遵守以下约定：
 ---
 
 ## 工作流
+
+> **最快路径**：`python scripts/fetch_all.py --xlsx <表.xlsx> --dest <目录>`
+> —— 自动按出版商分发、跑完重命名并生成人工清单；加 `--dry-run` 先看计划。
+> 下面是分步说明，排障或只想跑某一条通道时用。
 
 ### 第 0 步：体检（每次都先做）
 
@@ -266,6 +270,7 @@ python scripts/doctor.py --guide      # 打印逐项申请指引
 
 | 脚本 | 作用 |
 |---|---|
+| `scripts/fetch_all.py` | **一条命令跑完**：分发 → 下载 → 重命名 → 人工清单 |
 | `scripts/doctor.py` | 体检：本机凭证与可用通道 |
 | `scripts/gap_report.py` | 缺口盘点：还缺哪些、按出版商分组 |
 | `scripts/fetch_wiley_tdm.py` | Wiley 官方 TDM API |

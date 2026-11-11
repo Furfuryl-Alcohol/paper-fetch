@@ -37,7 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _common import (  # noqa: E402
-    norm_doi, publisher_of, safe_filename, valid_pdf,
+    DOI_COL_ALIASES, norm_doi, publisher_of, safe_filename, valid_pdf,
 )
 
 # 默认只列「无官方自助通道」的出版商；--all 则列出所有未完成项
@@ -63,9 +63,11 @@ def load_meta(xlsx: Path) -> dict[str, tuple[str, str, str]]:
     import pandas as pd
     df = pd.read_excel(xlsx, header=0)
     cols = {str(c).strip().lower(): c for c in df.columns}
-    doi_col = cols.get("doi")
+    doi_col = next((cols[a] for a in DOI_COL_ALIASES if a in cols), None)
     if doi_col is None:
-        raise ValueError(f"表格里找不到 DOI 列。实际列：{list(df.columns)[:12]}")
+        raise ValueError(
+            f"表格里找不到 DOI 列（接受: {', '.join(DOI_COL_ALIASES)}）。"
+            f"实际列：{list(df.columns)[:12]}")
     title_col = next((cols[k] for k in ("article title", "title", "标题") if k in cols), None)
     src_col = next((cols[k] for k in ("source title", "journal", "期刊", "来源出版物")
                     if k in cols), None)

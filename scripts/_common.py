@@ -146,6 +146,26 @@ def ensure_dir(p) -> Path:
     return p
 
 
+def write_atomic(path, data: bytes) -> Path:
+    """先写 .part 再原子替换 —— 中断不会留下半个 PDF。"""
+    p = Path(path)
+    tmp = p.with_name(p.name + ".part")
+    try:
+        tmp.write_bytes(data)
+        os.replace(tmp, p)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+    return p
+
+
+# xlsx 里常见的 DOI 列名（WoS 导出是 "DI"，不是 "DOI"）
+DOI_COL_ALIASES = ("doi", "di", "doi link", "doilink", "doi号", "数字对象标识符")
+
+
 def read_doi_list(path) -> list[str]:
     """从 txt / csv / xlsx 里取 DOI 列表。"""
     p = Path(path)
@@ -153,11 +173,19 @@ def read_doi_list(path) -> list[str]:
         raise FileNotFoundError(p)
 
     if p.suffix.lower() in (".xlsx", ".xls"):
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError:
+            raise SystemExit(
+                f"读取 {p.name} 需要 pandas。可先另存为 CSV/TXT（脚本会自动提取 DOI），"
+                f"或运行: pip install pandas openpyxl")
         df = pd.read_excel(p, header=0)
-        col = next((c for c in df.columns if str(c).strip().lower() == "doi"), None)
+        cols = {str(c).strip().lower(): c for c in df.columns}
+        col = next((cols[a] for a in DOI_COL_ALIASES if a in cols), None)
         if col is None:
-            raise ValueError(f"{p} 里找不到 DOI 列，实际列：{list(df.columns)[:10]}")
+            raise ValueError(
+                f"{p} 里找不到 DOI 列（接受: {', '.join(DOI_COL_ALIASES)}）。"
+                f"实际列: {list(df.columns)[:12]}")
         return [norm_doi(d) for d in df[col].dropna().astype(str) if norm_doi(d)]
 
     text = p.read_text(encoding="utf-8", errors="replace")
