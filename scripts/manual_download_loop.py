@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import shutil
@@ -42,6 +43,8 @@ URL_RE = re.compile(r"^链接\s*:\s*(\S+)")
 NAME_RE = re.compile(r"^将命名\s*:\s*(.+)$")
 DEST_RE = re.compile(r"^目标目录\s*:\s*(.+)$")
 DOI_RE = re.compile(r"doi\.org/(10\.\S+)")
+# 扫 PDF 正文找 DOI（结尾的 ).,; 之类要剥掉）
+DOI_TEXT_RE = re.compile(r"10\.\d{4,9}/[^\s,;\"'<>\)\]}]+")
 
 DEFAULT_PROFILE = Path.home() / ".paper-dl" / "edge-profile"
 SETTINGS_PATH = Path.home() / ".paper-fetch" / "settings.json"
@@ -166,6 +169,91 @@ def db_max_id(hist: Path) -> int:
         return -1
 
 
+def norm_doi(s: str) -> str:
+    s = str(s or "").strip().rstrip(".,;)]}")
+    s = re.sub(r"^(https?://)?(dx\.)?doi\.org/", "", s, flags=re.I)
+    return s.lower()
+
+
+def _norm_text(s: str) -> str:
+    s = re.sub(r"<[^>]+>", " ", str(s or ""))
+    for a, b in (("‐", "-"), ("‑", "-"), ("–", "-"), ("—", "-")):
+        s = s.replace(a, b)
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
+
+
+def pdf_matches(path: Path, entry: dict) -> tuple[bool, str]:
+    """校验"刚下到的这个 PDF"是不是清单里当前这一篇。返回 (ok, 说明)。
+
+    背景（2026-11-11 实测）：Edge 有时一次点击会在 History 里落**两条**记录，
+    第二条要晚几十秒才写完，于是被下一轮的 base 当成"新下载"收走 ——
+    整个批次因此**错位一篇**（第 N 篇的 PDF 被命名成第 N+1 篇）。事后靠人肉
+    比对正文才发现。这里在读记录时就校验内容，错位的记录直接忽略、继续等。
+
+    判定顺序：PDF 正文里的 DOI（最可靠）→ 抽不到 DOI 再退回标题匹配。
+    真正可疑却拒绝时会明确打印原因，留给人判断。
+    """
+    try:
+        import pymupdf
+    except ImportError:
+        return True, "未安装 pymupdf，跳过内容校验"
+
+    try:
+        doc = pymupdf.open(str(path))
+        try:
+            txt = "".join(doc[i].get_text() for i in range(min(2, doc.page_count)))
+        finally:
+            doc.close()
+    except Exception as ex:
+        return True, f"打不开（{ex!r}），跳过校验"
+
+    # 扫描件/纯图 PDF 没有可判断的证据，不做否决（否则永远下不进来）
+    if len(txt.strip()) < 50:
+        return True, "PDF 无可提取文本（扫描件？），跳过校验"
+
+    want = norm_doi(entry.get("doi", ""))
+    found = {norm_doi(x) for x in DOI_TEXT_RE.findall(txt)}
+    found = {d for d in found if d}
+    if found:
+        if want and want in found:
+            return True, "DOI 命中"
+        return False, f"正文 DOI 为 {', '.join(sorted(found)[:3])}，不是清单里的 {want}"
+
+    # 没抽到 DOI（扫描件/特殊排版）→ 退到标题
+    t = _norm_text(entry.get("title", ""))
+    body = _norm_text(txt[:4000])
+    if t and t in body:
+        return True, "标题整串命中"
+    m = difflib.SequenceMatcher(None, t, body).find_longest_match(0, len(t), 0, len(body))
+    score = m.size / max(1, len(t))
+    if score >= 0.6:
+        return True, f"标题匹配 {score:.2f}"
+    return False, f"正文标题与清单不符（匹配度 {score:.2f}，且 PDF 里没有 DOI）"
+
+
+def pick_hits(hits, entry: dict, ignored: set):
+    """从新出现的下载记录里挑出属于本篇的。返回 (good, rejected)。
+
+    rejected 里的 id 会记进 ignored，后续轮询不再重复判定。
+    """
+    good, rejected = [], []
+    for hid, tp in hits:
+        if hid in ignored:
+            continue
+        src = Path(tp)
+        if not src.exists():
+            ignored.add(hid)
+            rejected.append((hid, tp, "记录里的文件不存在"))
+            continue
+        ok, why = pdf_matches(src, entry)
+        if ok:
+            good.append((hid, tp))
+        else:
+            ignored.add(hid)
+            rejected.append((hid, tp, why))
+    return good, rejected
+
+
 def archive(src: Path, dest_dir: Path, name: str) -> tuple[bool, str]:
     """把 src 归档到 dest_dir/name，校验 %PDF-。返回 (ok, 说明)。"""
     try:
@@ -204,6 +292,132 @@ def tidy_tabs(ctx, keep):
         keep.bring_to_front()
     except Exception:
         pass
+
+
+def raise_browser_window(hint: str = "") -> None:
+    """把 Edge 窗口提到操作系统前台。
+
+    实测（2026-11-11）：`Page.bringToFront` 只切换**标签**，窗口本身仍可能
+    被别的程序盖着 —— 用户在 Cherry Studio 里干活时，预览页开了也完全看不见，
+    表现就是"脚本不会自动切过去"。所以补一手 SetForegroundWindow。
+
+    `hint` 用当前页标题做匹配，避免误把用户自己的另一个 Edge 窗口提到前台。
+    非 Windows 或没有 pywin32 时静默跳过。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import win32api
+        import win32con
+        import win32gui
+        import win32process
+    except ImportError:
+        return
+    try:
+        cands = []
+
+        def cb(h, _):
+            if not win32gui.IsWindowVisible(h):
+                return
+            if win32gui.GetClassName(h) != "Chrome_WidgetWin_1":
+                return
+            title = win32gui.GetWindowText(h)
+            if not title:
+                return
+            _, pid = win32process.GetWindowThreadProcessId(h)
+            try:
+                proc = win32api.OpenProcess(0x1000, False, pid)
+                exe = win32process.GetModuleFileNameEx(proc, 0)
+                win32api.CloseHandle(proc)
+            except Exception:
+                return
+            if exe.lower().endswith("msedge.exe"):
+                cands.append((h, title))
+
+        win32gui.EnumWindows(cb, None)
+        if not cands:
+            return
+        # 优先选标题里带当前页标题的窗口
+        key = (hint or "").strip()[:24].lower()
+        h, _t = next((c for c in cands if key and key in c[1].lower()), cands[0])
+        if win32gui.IsIconic(h):
+            win32gui.ShowWindow(h, win32con.SW_RESTORE)
+        if win32gui.GetForegroundWindow() == h:
+            return
+        try:
+            win32gui.SetForegroundWindow(h)
+        except Exception:
+            pass
+        if win32gui.GetForegroundWindow() == h:
+            return
+        # 前台锁（Windows 拒绝后台进程抢焦点）→ 临时挂到当前前台线程
+        fg = win32gui.GetForegroundWindow()
+        try:
+            t_fg = win32process.GetWindowThreadProcessId(fg)[0]
+            t_me = win32api.GetCurrentThreadId()
+            win32process.AttachThreadInput(t_me, t_fg, True)
+            try:
+                win32gui.BringWindowToTop(h)
+                win32gui.SetForegroundWindow(h)
+            finally:
+                win32process.AttachThreadInput(t_me, t_fg, False)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def focus_tab(p, note: str = "") -> None:
+    """切到某个标签，并把浏览器窗口一起提到前台。"""
+    try:
+        p.bring_to_front()
+    except Exception:
+        pass
+    try:
+        hint = p.title()
+    except Exception:
+        hint = ""
+    raise_browser_window(hint)
+    if note:
+        print(f"   ⇢ {note}")
+
+
+def live_page(ctx, page):
+    """工作标签被关掉时重新绑一个，否则后面所有 goto 都打在已关闭的 page 上。"""
+    try:
+        if page is not None and not page.is_closed():
+            return page
+    except Exception:
+        pass
+    for p in reversed(list(ctx.pages)):
+        try:
+            if p.url.startswith(("http://", "https://")):
+                print("   ↺ 工作标签已关闭，改绑到现有标签")
+                return p
+        except Exception:
+            pass
+    return ctx.new_page()
+
+
+def focus_new_tabs(pending):
+    """把新开的标签（多半是点 View PDF 弹出的预览页）切到前台。
+
+    注意：**不在事件回调里调用 Playwright**。同步 API 在事件派发过程中重入
+    会抛 'It looks like you are using Playwright Sync API inside the asyncio loop'
+    之类的错。回调只把 page 入队，由主循环的 300ms 轮询统一处理。
+    """
+    while pending:
+        p = pending.pop(0)
+        try:
+            p.wait_for_load_state("domcontentloaded", timeout=5000)
+        except Exception:
+            pass
+        try:
+            if p.is_closed():
+                continue
+        except Exception:
+            continue
+        focus_tab(p, f"已自动切到新标签：{(p.url or '')[:80]}")
 
 
 def main() -> int:
@@ -274,6 +488,10 @@ def main() -> int:
         ctx = browser.contexts[0]
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
+        # 新开的标签（View PDF 弹出的预览页）入队，主循环负责切到前台
+        pending_tabs: list = []
+        ctx.on("page", lambda p: pending_tabs.append(p))
+
         cmd = {"v": None}
         interactive = sys.stdin.isatty() and not args.no_input
 
@@ -297,6 +515,7 @@ def main() -> int:
                 print(f"── [{i}/{len(todo)}] #{e['n']} {e['pub']} ──────────────")
                 print(f"   {e['title']}\n   {e['url']}")
 
+                page = live_page(ctx, page)   # 工作标签被手动关掉时重新绑一个
                 tidy_tabs(ctx, page)          # 清掉上一篇的残留标签，避免误判
                 base = db_max_id(hist)
                 try:
@@ -304,20 +523,34 @@ def main() -> int:
                 except Exception as ex:
                     print(f"   导航异常（仍可手动处理）：{ex}")
 
+                focus_tab(page)               # 跳转后的标签可能在后台，切回前台
+
                 page.wait_for_timeout(1500)          # 等页面渲染稳定
                 flagged = False
                 eff = args.timeout
 
                 cmd["v"] = None
                 t0, tick, res = time.time(), 0, None
+                ignored: set[int] = set()     # 属于别的篇的下载记录（错位来源）
                 while True:
                     page.wait_for_timeout(300)
+                    focus_new_tabs(pending_tabs)
                     tick += 1
                     if tick % 4 == 0:
-                        hits = db_rows(hist, base)
+                        hits = [(hid, tp) for hid, tp in db_rows(hist, base)
+                                if hid not in ignored]
                         if hits:
-                            res = "db"
-                            break
+                            good, rejected = pick_hits(hits, e, ignored)
+                            for hid, tp, why in rejected:
+                                print(f"   ⚠ 忽略第 {hid} 条下载（不是本篇）：{why}")
+                                print(f"      {tp}")
+                            if good:
+                                hits = good
+                                res = "db"
+                                break
+                            # 全是别篇的残留 → 继续等本篇真正下完
+                            eff = max(eff, (time.time() - t0) + args.timeout)
+                            print("   …继续等待本篇的下载")
                         if not flagged:
                             mk, where = sniff_all(ctx)
                             if mk:
